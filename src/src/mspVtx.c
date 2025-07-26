@@ -6,6 +6,7 @@
 #include "serial.h"
 #include <string.h>
 #include "helpers.h"
+#include "trace.h"
 
 #define MSP_HEADER_DOLLAR               0x24
 #define MSP_HEADER_X                    0x58
@@ -371,13 +372,17 @@ void mspProcessPacket(void)
             // Set power before freq changes to prevent PLL settling issues and spamming other frequencies.
             in_mspVtxConfigStruct.power -= 1; // Correct for BF starting at 1.
             setPowerdB(saPowerLevelsLut[in_mspVtxConfigStruct.power]);
-
-            channel = ((in_mspVtxConfigStruct.band - 1) * 8) + (in_mspVtxConfigStruct.channel - 1);
-            if (channel < getFreqTableSize())
-            {            
-                myEEPROM.channel = channel;
-                rtc6705WriteFrequency(getFreqByIdx(channel));
-                myEEPROM.freqMode = 0;
+            
+            if (in_mspVtxConfigStruct.band) {
+              channel = ((in_mspVtxConfigStruct.band - 1) * 8) + (in_mspVtxConfigStruct.channel - 1);
+              if (channel < getFreqTableSize())
+              {            
+                  myEEPROM.channel = channel;
+                  rtc6705WriteFrequency(getFreqByIdx(channel));
+                  myEEPROM.freqMode = 0;
+              }
+            } else {
+              rtc6705WriteFrequency(((uint16_t)in_mspVtxConfigStruct.freqMSB << 8) + in_mspVtxConfigStruct.freqLSB);
             }
             break;
         }
@@ -473,6 +478,9 @@ void mspProcessPacket(void)
         break;
     case MSP_REBOOT:
         reboot_into_bootloader(9600);
+        break;
+    default:
+        target_mspProcessPacket(in_Function, rxPacket);
         break;
     }
 }
@@ -588,6 +596,7 @@ void mspUpdate(uint32_t now)
             initFreqPacketRecived = 1;
             setPowerdB(myEEPROM.currPowerdB);
             rtc6705WriteFrequency(getFreqByIdx(myEEPROM.channel));
+            mspState = SEND_EEPROM_WRITE;
             break;
         case SEND_EEPROM_WRITE:
             sendEepromWrite();
