@@ -233,11 +233,14 @@ void checkPowerOutput(void)
 
 void target_setup(void)
 {
+  target_rfPowerAmpPinSetup();
   /* TODO: Configure WDG, fwdgt_config() */
 }
 
 void target_loop(void)
 {
+  checkPowerOutput();
+
 #if DEBUG
   static uint32_t temp;
   static char buff[32];

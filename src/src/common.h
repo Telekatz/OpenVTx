@@ -37,6 +37,8 @@ uint16_t getFreqByIdx(uint8_t idx);
 uint8_t getBandLetterByIdx(uint8_t idx);
 uint8_t channelFreqLabelByIdx(uint8_t idx);
 
+extern void mcu_reboot(void);
+
 void clearSerialBuffer(void);
 void zeroRxPacket(void);
 void zeroTxPacket(void);

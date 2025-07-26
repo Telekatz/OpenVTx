@@ -9,6 +9,9 @@
 #define STR(x) XSTR(x)
 #define PATH(x, y) STR(IDENT(x)IDENT(y)IDENT(.h))
 
+#ifndef __weak
+#define __weak  __attribute__((weak))
+#endif
 
 #if defined(GENERIC_GD32F130) || defined(HAPPYMODEL_PANCAKE) || defined(BETAFPV_A03)
 #include "targets/Generic_GD32F130/Generic_GD32F130.h"
@@ -16,6 +19,8 @@
 #include "targets/Eachine_TX801/Eachine_TX801.h"
 #elif defined(EACHINE_TX526)
 #include "targets/Eachine_TX526/Eachine_TX526.h"
+#elif defined(GENERIC_STM32F10x)
+#include "targets/Generic_STM32F10x/Generic_STM31F10x.h"
 #endif
 
 // These are target specific functions and need to implemented per target!
@@ -23,9 +28,5 @@
 void target_setup(void);
 void target_loop(void);
 void target_set_power_dB(float power);
-void checkPowerOutput(void);
+void target_mspProcessPacket(uint16_t in_Function, uint8_t* rxPacket);
 
-void target_rfPowerAmpPinSetup(void);
-uint32_t vpd_value_get(void);
-
-void mcu_reboot(void);

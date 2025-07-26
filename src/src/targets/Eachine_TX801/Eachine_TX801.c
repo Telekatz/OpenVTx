@@ -25,6 +25,7 @@ void target_rfPowerAmpPinSetup(void)
 
 void target_setup(void)
 {
+  target_rfPowerAmpPinSetup();
 }
 
 void target_loop(void)
@@ -63,8 +64,4 @@ void target_set_power_dB(float dB)
     // digitalWrite(POWER_AMP_5, pinOutput & 0b010000);
     // digitalWrite(POWER_AMP_6, pinOutput & 0b100000);
   }
-}
-
-void checkPowerOutput(void)
-{
 }

@@ -58,7 +58,8 @@ void checkRTC6705isAlive()
 
 void setup(void)
 {
-  target_rfPowerAmpPinSetup();
+  target_setup();
+  
   rtc6705spiPinSetup();
 
   readEEPROM();
@@ -127,8 +128,6 @@ void loop(void)
   checkButton();
 
   rtc6705PowerUpAfterPLLSettleTime();
-
-  checkPowerOutput();
 
   checkRTC6705isAlive();
 
