@@ -3,6 +3,7 @@
 #include "common.h"
 #include "openVTxEEPROM.h"
 #include "gpio.h"
+#include "trace.h"
 
 static gpio_out_t ss_pin;
 static gpio_out_t sck_pin;
@@ -19,7 +20,7 @@ void rtc6705spiPinSetup(void)
 
 uint32_t rtc6705readRegister(uint8_t reg)
 {
-  uint32_t writeData = reg | (READ_BIT << 4);
+  uint32_t writeData = reg | (READ_BIT_ << 4);
   uint32_t readData = 0;
   uint8_t i;
 
@@ -177,6 +178,7 @@ void rtc6705WriteFrequency(uint32_t newFreq)
 
   /* Set frequency */
   rtc6705writeRegister(newRegData);
+  TRACE_INFO("Set frequency %i \r", newFreq);
 }
 
 void rtc6705PowerUpAfterPLLSettleTime()
