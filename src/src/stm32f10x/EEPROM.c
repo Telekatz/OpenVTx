@@ -29,13 +29,19 @@ void dump_flash(void);
 
 void eeprom_update_block(const uint16_t idx, uint8_t *ptr, uint32_t const len)
 {
-    
+    TRACE_DEBUG("eeprom_update_block: %i  len %i\r", idx, len);
+    for (uint8_t i = 0; i < len; i++) {
+      eeprom_write_byte(idx + i, ptr[i]);
+    }
 }
 
 
 void eeprom_read_block(const uint16_t idx, uint8_t *ptr, uint32_t const len)
 {
-    
+    TRACE_DEBUG("eeprom_read_block: %i  len %i\r", idx, len);
+    for (uint8_t i = 0; i < len; i++) {
+      ptr[i] = eeprom_read_byte(idx + i);
+    }
 }
 
 

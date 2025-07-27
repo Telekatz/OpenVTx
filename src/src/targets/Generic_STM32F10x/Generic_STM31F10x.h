@@ -2,8 +2,16 @@
 
 #define MAX_POWER                   100 // mW
 
-#define SA_NUM_POWER_LEVELS         5 // Max 5 for INAV.
+#define SA_NUM_POWER_LEVELS         4 // Max 5 for INAV.
 #define POWER_LEVEL_LABEL_LENGTH    3
+#define USE_CUSTOM_FREQ_TABLE       1
+
+#if USE_CUSTOM_FREQ_TABLE == 1
+#define BAND_COUNT                  4
+#define DEFAULT_BAND                3
+#define DEFAULT_CHANNEL             4
+#define DEFAULT_POWER               2
+#endif
 
 extern uint8_t saPowerLevelsLut[SA_NUM_POWER_LEVELS];
 extern uint8_t saPowerLevelsLabel[SA_NUM_POWER_LEVELS * POWER_LEVEL_LABEL_LENGTH];

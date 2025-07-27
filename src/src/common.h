@@ -2,6 +2,7 @@
 
 #include "platform.h"
 #include <stdint.h>
+#include "targets.h"
 
 #define TRAMP_BAUD                      9600
 #define SMARTAUDIO_BAUD                 4800
@@ -18,11 +19,27 @@
 #define IS_FACTORY_BAND                 0
 #define CHANNEL_COUNT                   8
 
+#ifndef BAND_COUNT
+#define BAND_COUNT                      6
+#endif
+#ifndef DEFAULT_BAND
+#define DEFAULT_BAND                    4
+#endif
+#ifndef DEFAULT_CHANNEL
+#define DEFAULT_CHANNEL                 4
+#endif
+#ifndef DEFAULT_POWER
+#define DEFAULT_POWER                   3
+#endif
+
+#define FREQ_TABLE_SIZE                 CHANNEL_COUNT * BAND_COUNT
+
 extern uint8_t rxPacket[64];
 extern uint8_t txPacket[64];
-#define FREQ_TABLE_SIZE 48
 
 extern uint16_t channelFreqTable[FREQ_TABLE_SIZE];
+extern const uint8_t channelFreqLabel[];
+extern const uint8_t bandLetter[];
 
 extern uint8_t vtxModeLocked;
 extern uint8_t pitMode;

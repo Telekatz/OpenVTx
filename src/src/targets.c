@@ -15,14 +15,14 @@ __weak void target_loop(void)
    */
 }
 
-__weak void target_set_power_dB(float __attribute__((unused)) power)
+__weak void target_set_power_dB(__attribute__((unused)) float power)
 {
   /* NOTE : This function should not be modified, when the callback is needed,
             the function could be implemented in target
    */
 }
 
-__weak void target_mspProcessPacket(uint16_t __attribute__((unused)) in_Function, uint8_t* __attribute__((unused)) rxPacket)
+__weak void target_mspProcessPacket(__attribute__((unused)) uint16_t in_Function, __attribute__((unused)) uint8_t* rxPacket)
 {
   /* NOTE : This function should not be modified, when the callback is needed,
             the function could be implemented in target

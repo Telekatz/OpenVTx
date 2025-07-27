@@ -7,6 +7,14 @@
 #include <math.h>
 #include "helpers.h"
 
+
+uint8_t rxPacket[64];
+uint8_t txPacket[64];
+uint8_t vtxModeLocked;
+uint8_t pitMode = 0;
+uint8_t initFreqPacketRecived = 0;
+
+#if USE_CUSTOM_FREQ_TABLE == 0
 const uint8_t channelFreqLabel[48] = {
     'B', 'A', 'N', 'D', '_', 'A', ' ', ' ', // A
     'B', 'A', 'N', 'D', '_', 'B', ' ', ' ', // B
@@ -18,12 +26,6 @@ const uint8_t channelFreqLabel[48] = {
 
 const uint8_t bandLetter[6] = {'A', 'B', 'E', 'F', 'R', 'L'};
 
-uint8_t rxPacket[64];
-uint8_t txPacket[64];
-uint8_t vtxModeLocked;
-uint8_t pitMode = 0;
-uint8_t initFreqPacketRecived = 0;
-
 uint16_t channelFreqTable[FREQ_TABLE_SIZE] = {
     5865, 5845, 5825, 5805, 5785, 5765, 5745, 5725, // A
     5733, 5752, 5771, 5790, 5809, 5828, 5847, 5866, // B
@@ -32,6 +34,7 @@ uint16_t channelFreqTable[FREQ_TABLE_SIZE] = {
     5658, 5695, 5732, 5769, 5806, 5843, 5880, 5917, // R
     5362, 5399, 5436, 5473, 5510, 5547, 5584, 5621  // LowRace
 };
+#endif
 
 uint8_t getFreqTableSize(void)
 {

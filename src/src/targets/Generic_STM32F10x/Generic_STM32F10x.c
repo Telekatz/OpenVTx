@@ -18,10 +18,9 @@
  *    Index 0 is ignored [https://github.com/iNavFlight/inav/blob/a8016edd0d6f05bb12a75b0ea75a3483772baaeb/src/main/io/vtx_smartaudio.c#L334]
  *
  */
-uint8_t saPowerLevelsLut[SA_NUM_POWER_LEVELS] = {1, RACE_MODE, 14, 17, 20};
+uint8_t saPowerLevelsLut[SA_NUM_POWER_LEVELS] = {1, 14, 17, 20};
 
 uint8_t saPowerLevelsLabel[SA_NUM_POWER_LEVELS * POWER_LEVEL_LABEL_LENGTH] = {'1', ' ', ' ',
-                                                                              'R', 'C', 'E',
                                                                               '2', '5', ' ',
                                                                               '5', '0', ' ',
                                                                               '1', '0', '0'};
@@ -43,6 +42,24 @@ uint16_t calVpd[CAL_DBM_SIZE][CAL_FREQ_SIZE] = {
     { 2031, 2056, 2085, 2121, 2165, 2222, 2301 }, // 100 mW
     { 2031, 2056, 2085, 2121, 2165, 2222, 2301 }
 };
+
+#if USE_CUSTOM_FREQ_TABLE == 1
+const uint8_t channelFreqLabel[32] = {
+    'B', 'A', 'N', 'D', '_', 'A', ' ', ' ', // A
+    'B', 'A', 'N', 'D', '_', 'B', ' ', ' ', // B
+    'F', 'A', 'T', 'S', 'H', 'A', 'R', 'K', // F
+    'R', 'A', 'C', 'E', ' ', ' ', ' ', ' '  // R
+};
+
+const uint8_t bandLetter[4] = {'A', 'B', 'F', 'R'};
+
+uint16_t channelFreqTable[FREQ_TABLE_SIZE] = {
+    5865, 5845, 5825, 5805, 5785, 5765, 5745,    0, // A
+    5733, 5752, 5771, 5790, 5809, 5828, 5847, 5866, // B
+    5740, 5760, 5780, 5800, 5820, 5840, 5860,    0, // F
+       0,    0, 5732, 5769, 5806, 5843,    0,    0, // R
+};
+#endif
 
 uint16_t bilinearInterpolation(float dB)
 {
@@ -112,8 +129,8 @@ void target_set_power_dB(float dB)
 
 void target_mspProcessPacket(uint16_t __attribute__((unused)) in_Function, uint8_t* __attribute__((unused)) rxPacket)
 {
-  uint16_t __attribute__((unused)) debug0;
-  uint16_t __attribute__((unused)) debug1;
+  uint16_t debug0;
+  uint16_t debug1;
 
   switch (in_Function)
     {
@@ -121,7 +138,28 @@ void target_mspProcessPacket(uint16_t __attribute__((unused)) in_Function, uint8
       debug0 = ((uint16_t)rxPacket[9] << 8) + rxPacket[8];
       debug1 = ((uint16_t)rxPacket[11] << 8) + rxPacket[10];
       TRACE_INFO("target_debug %04x %04x\r", debug0, debug1);
-      pwm_out_write(outputPower_pin,debug0);
+      switch (debug1)
+        {
+          case 0:
+            pwm_out_write(outputPower_pin,debug0);
+            break;
+          case 1:
+            TRACE_INFO("myEEPROM.version %i\r", myEEPROM.version);
+            TRACE_INFO("myEEPROM.vtxMode %i\r", myEEPROM.vtxMode);
+            TRACE_INFO("myEEPROM.currFreq %i\r", myEEPROM.currFreq);
+            TRACE_INFO("myEEPROM.channel %i\r", myEEPROM.channel);
+            TRACE_INFO("myEEPROM.freqMode %i\r", myEEPROM.freqMode);
+            TRACE_INFO("myEEPROM.pitmodeInRange %i\r", myEEPROM.pitmodeInRange);
+            TRACE_INFO("myEEPROM.pitmodeOutRange %i\r", myEEPROM.pitmodeOutRange);
+            TRACE_INFO("myEEPROM.currPowerdB %f\r", myEEPROM.currPowerdB);
+            TRACE_INFO("myEEPROM.currPowermW %i\r", myEEPROM.currPowermW);
+            TRACE_INFO("myEEPROM.unlocked %i\r", myEEPROM.unlocked);
+
+
+            break;
+          default:
+            break;
+        }
       break;
     
     default:
@@ -129,14 +167,6 @@ void target_mspProcessPacket(uint16_t __attribute__((unused)) in_Function, uint8
     }
 
 }
-
-/*
-case MSP_DEBUG:
-        TRACE_DEBUG_WP("recv MSP_DEBUG\r");
-        target_MSP_debug();
-        break;
-*/
-
 
 void target_setup(void)
 {

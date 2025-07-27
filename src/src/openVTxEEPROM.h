@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 
-#define versionEEPROM 0x111
+#define versionEEPROM 0x112
 
 uint32_t updateEEPROMtime;
 
@@ -18,7 +18,6 @@ typedef enum
 typedef struct
 {
     uint16_t version;
-    vtxMode_e vtxMode;
     uint16_t currFreq;
     uint8_t channel;
     uint8_t freqMode;
@@ -27,6 +26,7 @@ typedef struct
     float currPowerdB;
     uint16_t currPowermW; // Required due to rounding errors when converting between dBm and mW
     uint8_t unlocked;
+    vtxMode_e vtxMode;
 } openVTxEEPROM;
 
 extern openVTxEEPROM myEEPROM;

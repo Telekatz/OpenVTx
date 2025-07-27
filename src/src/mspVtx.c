@@ -289,18 +289,18 @@ void clearVtxTable(void)
     
     txPacket[8] = 0; // idx LSB
     txPacket[9] = 0;  // idx MSB
-    txPacket[10] = 3; // 25mW Power idx
+    txPacket[10] = DEFAULT_POWER; // 25mW Power idx
     txPacket[11] = 0; // pitmode
     txPacket[12] = 0; // lowPowerDisarm 
     txPacket[13] = 0; // pitModeFreq LSB
     txPacket[14] = 0; // pitModeFreq MSB
-    txPacket[15] = 4; // newBand - Band Fatshark
-    txPacket[16] = 4; // newChannel - Channel 4
+    txPacket[15] = DEFAULT_BAND; // newBand - Band Fatshark
+    txPacket[16] = DEFAULT_CHANNEL; // newChannel - Channel 4
     txPacket[17] = 0; // newFreq  LSB
     txPacket[18] = 0; // newFreq  MSB
-    txPacket[19] = 6; // newBandCount  
-    txPacket[20] = 8; // newChannelCount 
-    txPacket[21] = 5; // newPowerCount 
+    txPacket[19] = BAND_COUNT; // newBandCount  
+    txPacket[20] = CHANNEL_COUNT; // newChannelCount 
+    txPacket[21] = SA_NUM_POWER_LEVELS; // newPowerCount 
     txPacket[22] = 1; // vtxtable should be cleared  
     
     uint8_t crc = 0;
@@ -353,7 +353,7 @@ void mspProcessPacket(void)
             myEEPROM.channel = ((in_mspVtxConfigStruct.band - 1) * 8) + (in_mspVtxConfigStruct.channel - 1);   
             if (myEEPROM.channel >= getFreqTableSize())
             {
-                myEEPROM.channel = 27; // F4 5800MHz
+                myEEPROM.channel = (DEFAULT_BAND - 1) * CHANNEL_COUNT + (DEFAULT_CHANNEL - 1); // F4 5800MHz
             } 
             myEEPROM.freqMode = 0;
             //////////////////////////////////////////////////////////////////////////////////////////////////
