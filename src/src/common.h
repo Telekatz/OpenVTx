@@ -32,7 +32,7 @@
 #define DEFAULT_POWER                   3
 #endif
 
-#define FREQ_TABLE_SIZE                 CHANNEL_COUNT * BAND_COUNT
+#define FREQ_TABLE_SIZE                 (CHANNEL_COUNT * BAND_COUNT)
 
 extern uint8_t rxPacket[64];
 extern uint8_t txPacket[64];

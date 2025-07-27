@@ -480,9 +480,9 @@ void mspProcessPacket(void)
         reboot_into_bootloader(9600);
         break;
     default:
-        target_mspProcessPacket(in_Function, rxPacket);
         break;
     }
+    target_mspProcessPacket(in_Function, rxPacket);
 }
 
 void mspProcessSerial(void)

@@ -16,8 +16,13 @@
 extern uint8_t saPowerLevelsLut[SA_NUM_POWER_LEVELS];
 extern uint8_t saPowerLevelsLabel[SA_NUM_POWER_LEVELS * POWER_LEVEL_LABEL_LENGTH];
 
-#define UART_RX       PA9
-#define UART_TX       PA10
+#if 1
+#define UART_RX       PA10
+#define UART_TX       PA9
+#else
+#define UART_RX       PA2
+#define UART_TX       PA2
+#endif
 
 #define SPI_SS        PC15
 #define SPI_CLOCK     PC14

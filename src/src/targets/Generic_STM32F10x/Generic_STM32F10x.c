@@ -132,6 +132,8 @@ void target_mspProcessPacket(uint16_t __attribute__((unused)) in_Function, uint8
   uint16_t debug0;
   uint16_t debug1;
 
+  TRACE_DEBUG("MSP receive %i\r", in_Function);
+
   switch (in_Function)
     {
     case MSP_DEBUG:
