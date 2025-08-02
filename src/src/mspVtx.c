@@ -6,10 +6,10 @@
 #include "serial.h"
 #include <string.h>
 #include "helpers.h"
-#include "trace.h"
 
 #define MSP_HEADER_DOLLAR               0x24
 #define MSP_HEADER_X                    0x58
+#define MSP_HEADER_M                    0x4D
 #define MSP_HEADER_REQUEST              0x3C
 #define MSP_HEADER_RESPONSE             0x3E
 #define MSP_HEADER_ERROR                0x21
@@ -29,17 +29,6 @@
 
 #define FC_QUERY_PERIOD_MS              200
 
-typedef enum
-{
-  GET_VTX_TABLE_SIZE = 0,
-  CHECK_POWER_LEVELS,
-  CHECK_BANDS,
-  SET_DEFAULTS,
-  SEND_EEPROM_WRITE,
-  MONITORING,
-  MSP_STATE_MAX
-} mspState_e;
-
 enum {
     MSP_SYNC_DOLLAR = 0,
     MSP_SYNC_X,
@@ -49,6 +38,11 @@ enum {
     MSP_PAYLOAD_SIZE,
     MSP_PAYLOAD,
     MSP_CRC,
+    MSP_TYPE_M,
+    MSP_FUNCTION_M,
+    MSP_PAYLOAD_SIZE_M,
+    MSP_PAYLOAD_M,
+    MSP_CRC_M
 };
 
 // https://github.com/betaflight/betaflight/blob/master/src/main/msp/msp.c#L1949
@@ -482,16 +476,26 @@ void mspProcessPacket(void)
     default:
         break;
     }
-    target_mspProcessPacket(in_Function, rxPacket);
 }
 
 void mspProcessSerial(void)
 {
-    if (serial_available())
+    while (serial_available())
     {
         uint8_t data = serial_read();
 
         rxPacket[in_idx++] = data;
+
+        if(in_idx == 64) {
+          TRACE_INFO_WP("rx overflow (%02x): ",in_PayloadSize);
+          for(uint8_t x = 0; x< 0x0f; x++) {
+            TRACE_INFO_WP("%02x ", rxPacket[x]);
+          }
+          TRACE_INFO_WP("\r");
+          state = MSP_SYNC_DOLLAR;
+          in_idx = 0;
+          data = 0;
+        }
 
         switch (state)
         {
@@ -507,6 +511,8 @@ void mspProcessSerial(void)
                 if (data == MSP_HEADER_X) {
                     state = MSP_TYPE;
                     status_led3(1); // Got header so turn on incoming packet LED.
+                } else if (data == MSP_HEADER_M) {
+                    state = MSP_TYPE_M;
                 } else {
                     state = MSP_SYNC_DOLLAR;
                     in_idx = 0;
@@ -528,7 +534,7 @@ void mspProcessSerial(void)
                 break;
             case MSP_FUNCTION:
                 in_CRC = mspCalcCrc(in_CRC, data);
-                if (in_idx == 5)
+                if (in_idx == 6)
                 {
                     in_Function = ((uint16_t)rxPacket[5] << 8) | rxPacket[4];
                     state = MSP_PAYLOAD_SIZE;
@@ -536,10 +542,13 @@ void mspProcessSerial(void)
                 break;
             case MSP_PAYLOAD_SIZE:
                 in_CRC = mspCalcCrc(in_CRC, data);
-                if (in_idx == 7)
+                if (in_idx == 8)
                 {
                     in_PayloadSize = ((uint16_t)rxPacket[7] << 8) | rxPacket[6];
-                    state = MSP_PAYLOAD;
+                    if (in_PayloadSize)
+                      state = MSP_PAYLOAD;
+                    else
+                      state = MSP_CRC;
                 }
                 break;
             case MSP_PAYLOAD:
@@ -553,12 +562,77 @@ void mspProcessSerial(void)
                 if (in_CRC == data)
                 {
                     vtxModeLocked = 1; // Successfully got a packet so lock VTx mode.
-                    if (in_Type != MSP_HEADER_ERROR)
-                        mspProcessPacket();
+                    if (in_Type != MSP_HEADER_ERROR) {
+                      
+                      mspPacket_t *packet = (mspPacket_t*)rxPacket;
+                      TRACE_INFO_WP("rx OK  : ");
+                      for(uint8_t x = 0; x<3; x++) { TRACE_INFO_WP("%c", rxPacket[x]); }
+                      for(uint8_t x = 3; x<9+packet->v2.size; x++) { TRACE_INFO_WP(" %02x", rxPacket[x]); }
+                      TRACE_INFO_WP("\r");
+                      mspProcessPacket();
+                      target_mspProcessPacket((mspPacket_t*)rxPacket);
+                    }
+                      
                 }
                 state = MSP_SYNC_DOLLAR;
                 in_idx = 0;
                 break;
+            
+            case MSP_TYPE_M:  
+                if (data == MSP_HEADER_REQUEST || data == MSP_HEADER_RESPONSE || data == MSP_HEADER_ERROR) {
+                    in_Type = data;
+                    state = MSP_PAYLOAD_SIZE_M;
+                } else {
+                    state = MSP_SYNC_DOLLAR;
+                    in_idx = 0;
+                }
+                break;
+
+            case MSP_PAYLOAD_SIZE_M:
+                in_CRC = data;
+                in_PayloadSize = data;
+                state = MSP_FUNCTION_M;
+                break;
+
+            case MSP_FUNCTION_M:
+                in_CRC ^= data;
+                in_Function = data;
+                if (in_PayloadSize)
+                  state = MSP_PAYLOAD_M;
+                else
+                  state = MSP_CRC_M;
+                break;
+            
+            case MSP_PAYLOAD_M:
+                in_CRC ^= data;
+                if (in_idx == (5 + in_PayloadSize))
+                {
+                    state = MSP_CRC_M;
+                }
+                break;
+
+            case MSP_CRC_M:
+                if (in_CRC == data)
+                {
+                    if (in_Type != MSP_HEADER_ERROR) {
+                      mspPacket_t *packet = (mspPacket_t*)rxPacket;
+                      TRACE_DEBUG_WP("rx OK  : ");
+                      for(uint8_t x = 0; x<3; x++) { TRACE_DEBUG_WP("%c", rxPacket[x]); }
+                      for(uint8_t x = 3; x<6+packet->v1.size; x++) { TRACE_DEBUG_WP(" %02x", rxPacket[x]); }
+                      TRACE_DEBUG_WP("\r");
+                      target_mspProcessPacket((mspPacket_t*)rxPacket);
+                    }
+                } else {
+                  mspPacket_t *packet = (mspPacket_t*)rxPacket;
+                  TRACE_INFO_WP("rx fail: ");
+                  for(uint8_t x = 0; x<3; x++) { TRACE_INFO_WP("%c", rxPacket[x]); }
+                  for(uint8_t x = 3; x<6+packet->v1.size; x++) { TRACE_INFO_WP(" %02x", rxPacket[x]); }
+                  TRACE_INFO_WP("  CRC calc:%02x\r", in_CRC);
+                }
+                state = MSP_SYNC_DOLLAR;
+                in_idx = 0;
+                break;
+
             default:
                 state = MSP_SYNC_DOLLAR;
                 in_idx = 0;
@@ -613,6 +687,7 @@ void mspUpdate(uint32_t now)
             return;
         break;
     }
-    
+    target_mspUpdate(mspState);
+
     return;
 }

@@ -1,7 +1,7 @@
 #include "EEPROM.h"
 
 #include <string.h>
-#include "trace.h"
+#include "common.h"
 #include "stm32f1xx_hal.h"
 
 #define eeprom_busy_wait()

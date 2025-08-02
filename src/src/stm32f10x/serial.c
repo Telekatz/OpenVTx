@@ -3,29 +3,34 @@
 #include "atomic.h"
 #include "targets.h"
 #include "helpers.h"
-#include "trace.h"
+#include "common.h"
 #include "gpio.h"
+#include "platform.h"
+
+#define RX_BUFFER_SIZE 128
 
 UART_HandleTypeDef huart;
+DMA_HandleTypeDef hdma_usart_rx;
+
 uint8_t inbyte;
 
-static volatile uint8_t rx_buffer[64];
+uint8_t rx_buffer[RX_BUFFER_SIZE];
 static volatile uint8_t rx_head, rx_tail;
 
 struct usartx {
   USART_TypeDef *usart;
   uint32_t pin_rx, pin_tx, rm;
+  DMA_Channel_TypeDef *dma_channel;
 };
+
 struct usartx usart_config[] = {
-  {USART1, PA10, PA9,  0},
-  {USART1, PB7,  PB6,  1},
-  {USART2, PA3,  PA2,  0},
-  {USART3, PB11, PB10, 0}
+  {USART1, PA10, PA9,  0, DMA1_Channel5},
+  {USART1, PB7,  PB6,  1, DMA1_Channel5},
+  {USART2, PA3,  PA2,  0, DMA1_Channel6},
+  {USART3, PB11, PB10, 0, DMA1_Channel3}
 };
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *UartHandle)
-{
-
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *UartHandle) {
   uint8_t next = rx_head;
   if (((next + 1) % sizeof(rx_buffer)) != rx_tail) {
       rx_buffer[next] = inbyte;
@@ -39,9 +44,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *UartHandle)
   return;
 }
 
-void HAL_UART_MspInit(UART_HandleTypeDef* uartHandle)
-{
-
+void HAL_UART_MspInit(UART_HandleTypeDef* uartHandle) {
   if(uartHandle->Instance==USART1)
   {
     __HAL_RCC_USART1_CLK_ENABLE();
@@ -63,8 +66,7 @@ void HAL_UART_MspInit(UART_HandleTypeDef* uartHandle)
 }
 
 
-void config_uart_GPIO(struct usartx * usart_cfg, uint32_t tx_pin, uint32_t rx_pin)
-{
+void config_uart_GPIO(struct usartx * usart_cfg, uint32_t tx_pin, uint32_t rx_pin) {
   uint8_t halfduplex = (tx_pin == rx_pin);
   uint32_t gpio_periph;
   uint32_t gpio_pin;
@@ -104,11 +106,25 @@ void config_uart_GPIO(struct usartx * usart_cfg, uint32_t tx_pin, uint32_t rx_pi
   if(usart_cfg->rm == 1)
     __HAL_AFIO_REMAP_USART1_ENABLE();
 
+  #if USART_USE_DMA == 1
+  // DMA USART1 RX Init
+  hdma_usart_rx.Instance = usart_cfg->dma_channel;
+  hdma_usart_rx.Init.Direction = DMA_PERIPH_TO_MEMORY;
+  hdma_usart_rx.Init.PeriphInc = DMA_PINC_DISABLE;
+  hdma_usart_rx.Init.MemInc = DMA_MINC_ENABLE;
+  hdma_usart_rx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
+  hdma_usart_rx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
+  hdma_usart_rx.Init.Mode = DMA_CIRCULAR;
+  hdma_usart_rx.Init.Priority = DMA_PRIORITY_LOW;
+  HAL_DMA_Init(&hdma_usart_rx);
+
+  __HAL_LINKDMA(&huart, hdmarx, hdma_usart_rx);
+  #endif
+
 }
 
 
-static void config_uart(struct usartx * usart_cfg, uint32_t baud, uint8_t halfduplex, uint8_t stopbits)
-{
+static void config_uart(struct usartx * usart_cfg, uint32_t baud, uint8_t halfduplex, uint8_t stopbits) {
   USART_TypeDef *usart_periph = usart_cfg->usart;
 
   huart.Instance = usart_periph;
@@ -132,8 +148,7 @@ static void config_uart(struct usartx * usart_cfg, uint32_t baud, uint8_t halfdu
 
 
 
-void serial_begin(uint32_t baud, uint32_t tx_pin, uint32_t rx_pin, uint8_t stopbits)
-{
+void serial_begin(uint32_t baud, uint32_t tx_pin, uint32_t rx_pin, uint8_t stopbits) {
   uint8_t iter, halfduplex = (tx_pin == rx_pin);
 
   TRACE_DEBUG("serial_begin %i %i %i %i\r", baud, tx_pin, rx_pin, stopbits);
@@ -142,21 +157,30 @@ void serial_begin(uint32_t baud, uint32_t tx_pin, uint32_t rx_pin, uint8_t stopb
     if (usart_config[iter].pin_tx == tx_pin && (halfduplex || usart_config[iter].pin_rx == rx_pin)) {
       config_uart(&usart_config[iter], baud, halfduplex, stopbits);
       config_uart_GPIO(&usart_config[iter], tx_pin, rx_pin);
+      #if USART_USE_DMA == 1
+      HAL_UART_Receive_DMA(&huart, rx_buffer, RX_BUFFER_SIZE);
+      #else
       HAL_UART_Receive_IT(&huart, &inbyte, 1);
+      #endif
       break;
     }
   }
 }
 
-uint8_t serial_available(void)
-{
-  return (uint32_t)(sizeof(rx_buffer) + rx_head - rx_tail) % sizeof(rx_buffer);
+uint8_t serial_available(void) {
+  #if USART_USE_DMA == 1
+    rx_head = RX_BUFFER_SIZE - __HAL_DMA_GET_COUNTER(&hdma_usart_rx);
+  #endif
+  return (uint32_t)(RX_BUFFER_SIZE + rx_head - rx_tail) % RX_BUFFER_SIZE;
 }
 
-uint8_t serial_read(void)
-{
+
+uint8_t serial_read(void) {
+  #if USART_USE_DMA == 1
+    rx_head = RX_BUFFER_SIZE - __HAL_DMA_GET_COUNTER(&hdma_usart_rx);
+  #endif
   uint8_t data = rx_buffer[rx_tail++];
-  rx_tail %= sizeof(rx_buffer);
+  rx_tail %= RX_BUFFER_SIZE;
   return data;
 }
 

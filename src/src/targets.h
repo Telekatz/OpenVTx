@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include "mspVtx.h"
 
 #define CONCAT_helper(x, y) x ## y
 #define CONCAT(x, y) CONCAT_helper(x, y)
@@ -28,5 +29,5 @@
 void target_setup(void);
 void target_loop(void);
 void target_set_power_dB(float power);
-void target_mspProcessPacket(uint16_t in_Function, uint8_t* rxPacket);
-
+void target_mspProcessPacket(mspPacket_t *packet);
+void target_mspUpdate(uint8_t mspState);

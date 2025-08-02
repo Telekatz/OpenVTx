@@ -3,7 +3,6 @@
 #include "common.h"
 #include "openVTxEEPROM.h"
 #include "gpio.h"
-#include "trace.h"
 
 static gpio_out_t ss_pin;
 static gpio_out_t sck_pin;

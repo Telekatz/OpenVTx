@@ -16,12 +16,18 @@
 extern uint8_t saPowerLevelsLut[SA_NUM_POWER_LEVELS];
 extern uint8_t saPowerLevelsLabel[SA_NUM_POWER_LEVELS * POWER_LEVEL_LABEL_LENGTH];
 
-#if 1
+#define USART                       2
+#define USART_USE_DMA               1
+
+#if USART == 1
 #define UART_RX       PA10
 #define UART_TX       PA9
-#else
-#define UART_RX       PA2
+#elif USART == 2
+#define UART_RX       PA3
 #define UART_TX       PA2
+#elif USART == 3
+#define UART_RX       PB11
+#define UART_TX       PB10
 #endif
 
 #define SPI_SS        PC15

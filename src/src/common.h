@@ -3,6 +3,7 @@
 #include "platform.h"
 #include <stdint.h>
 #include "targets.h"
+#include "trace.h"
 
 #define TRAMP_BAUD                      9600
 #define SMARTAUDIO_BAUD                 4800

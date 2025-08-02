@@ -8,8 +8,8 @@
 #include "helpers.h"
 
 
-uint8_t rxPacket[64];
-uint8_t txPacket[64];
+uint8_t rxPacket[64] __attribute__((aligned(2)));
+uint8_t txPacket[64] __attribute__((aligned(2)));
 uint8_t vtxModeLocked;
 uint8_t pitMode = 0;
 uint8_t initFreqPacketRecived = 0;

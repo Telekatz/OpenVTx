@@ -3,13 +3,11 @@
 #include "openVTxEEPROM.h"
 //#include "rtc6705.h"
 #include "gpio.h"
-#include "trace.h"
 #include "helpers.h"
 #include <math.h>
+#include "mspVtx.h"
 
 #define OUTPUT_POWER_INTERVAL 5 // ms
-
-#define MSP_DEBUG                       254  // out message: debug1,debug2,debug3,debug4
 
 /* SA2.1 powerlevels in dBm.
  *
@@ -121,59 +119,66 @@ void target_rfPowerAmpPinSetup(void)
 
 void target_set_power_dB(float dB)
 {
-  int8_t __attribute__((unused)) dBint = (int)(dB + 0.5);
-  TRACE_INFO("target_set_power_dB %i (%i) \r", dBint, bilinearInterpolation(dB));
-
-  pwm_out_write(outputPower_pin,bilinearInterpolation(dB));
+  uint16_t paValue = bilinearInterpolation(dB);
+  TRACE_INFO("target_set_power_dB %i (%i) \r", (int)(dB + 0.5), paValue);
+  #ifdef PA_LIMIT
+  if(paValue > PA_LIMIT) 
+    paValue = PA_LIMIT;
+  #endif
+  pwm_out_write(outputPower_pin,paValue);
 }
 
-void target_mspProcessPacket(uint16_t __attribute__((unused)) in_Function, uint8_t* __attribute__((unused)) rxPacket)
+void target_mspProcessPacket(mspPacket_t __attribute__((unused)) *packet)
 {
   uint16_t debug0;
   uint16_t debug1;
 
-  TRACE_DEBUG("MSP receive %i\r", in_Function);
+  switch (packet->v1.version) {
 
-  switch (in_Function)
-    {
-    case MSP_DEBUG:
-      debug0 = ((uint16_t)rxPacket[9] << 8) + rxPacket[8];
-      debug1 = ((uint16_t)rxPacket[11] << 8) + rxPacket[10];
-      TRACE_INFO("target_debug %04x %04x\r", debug0, debug1);
-      switch (debug1)
-        {
-          case 0:
-            pwm_out_write(outputPower_pin,debug0);
-            break;
-          case 1:
-            TRACE_INFO("myEEPROM.version %i\r", myEEPROM.version);
-            TRACE_INFO("myEEPROM.vtxMode %i\r", myEEPROM.vtxMode);
-            TRACE_INFO("myEEPROM.currFreq %i\r", myEEPROM.currFreq);
-            TRACE_INFO("myEEPROM.channel %i\r", myEEPROM.channel);
-            TRACE_INFO("myEEPROM.freqMode %i\r", myEEPROM.freqMode);
-            TRACE_INFO("myEEPROM.pitmodeInRange %i\r", myEEPROM.pitmodeInRange);
-            TRACE_INFO("myEEPROM.pitmodeOutRange %i\r", myEEPROM.pitmodeOutRange);
-            TRACE_INFO("myEEPROM.currPowerdB %f\r", myEEPROM.currPowerdB);
-            TRACE_INFO("myEEPROM.currPowermW %i\r", myEEPROM.currPowermW);
-            TRACE_INFO("myEEPROM.unlocked %i\r", myEEPROM.unlocked);
-
-
-            break;
-          default:
-            break;
-        }
+    case MSP_V1:
       break;
-    
+
+    case MSP_V2:
+      switch (packet->v2.cmd) {
+        case MSP_DEBUG:
+          debug0 = ((uint16_t)packet->v2.payload[1] << 8) + packet->v2.payload[0];
+          debug1 = ((uint16_t)packet->v2.payload[3] << 8) + packet->v2.payload[2];
+          TRACE_INFO("target_debug %04x %04x\r", debug0, debug1);
+          switch (debug1) {
+            case 0:
+              pwm_out_write(outputPower_pin,debug0);
+              break;
+            case 1:
+              TRACE_INFO("myEEPROM.version %i\r", myEEPROM.version);
+              TRACE_INFO("myEEPROM.vtxMode %i\r", myEEPROM.vtxMode);
+              TRACE_INFO("myEEPROM.currFreq %i\r", myEEPROM.currFreq);
+              TRACE_INFO("myEEPROM.channel %i\r", myEEPROM.channel);
+              TRACE_INFO("myEEPROM.freqMode %i\r", myEEPROM.freqMode);
+              TRACE_INFO("myEEPROM.pitmodeInRange %i\r", myEEPROM.pitmodeInRange);
+              TRACE_INFO("myEEPROM.pitmodeOutRange %i\r", myEEPROM.pitmodeOutRange);
+              TRACE_INFO("myEEPROM.currPowerdB %f\r", myEEPROM.currPowerdB);
+              TRACE_INFO("myEEPROM.currPowermW %i\r", myEEPROM.currPowermW);
+              TRACE_INFO("myEEPROM.unlocked %i\r", myEEPROM.unlocked);
+              break;
+            default:
+              break;
+          }
+          break;
+
+        default:
+          
+          break;
+        } //switch (packet->v2.cmd)
     default:
-      break;
-    }
-
+        break;
+  } // switch (packet->v1.version)
 }
 
 void target_setup(void)
 {
-  target_rfPowerAmpPinSetup();
   TRACE_INFO("target_setup\r");
+  target_rfPowerAmpPinSetup();
+  
 }
 
 void target_loop(void)

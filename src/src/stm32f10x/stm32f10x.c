@@ -2,7 +2,7 @@
 
 #include "targets.h"
 #include "dbgu.h"
-#include "trace.h"
+#include "common.h"
 #include "EEPROM.h"
 uint32_t _bootloader_data;
 
@@ -49,7 +49,7 @@ void SystemClock_Config(void)
   HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
 
   /* SysTick_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(SysTick_IRQn, 2, 0);
 
   SystemCoreClockUpdate();
 
@@ -66,6 +66,7 @@ void HAL_MspInit(void)
   __HAL_RCC_TIM2_CLK_ENABLE();
   __HAL_RCC_TIM3_CLK_ENABLE();
   __HAL_RCC_TIM4_CLK_ENABLE();
+  __HAL_RCC_DMA1_CLK_ENABLE();
 
 }
 
@@ -92,6 +93,10 @@ void delayMicroseconds(uint32_t us)
 
 }
 
+void _Error_Handler(const char * file, int line) {
+  TRACE_ERROR("Error Handler %s %i \r", file, line);
+  while (1) {}
+}
 
 
 gpio_out_t led1_pin;
