@@ -7,7 +7,7 @@
 #include "gpio.h"
 #include "platform.h"
 
-#define RX_BUFFER_SIZE 128
+#define RX_BUFFER_SIZE 256
 
 UART_HandleTypeDef huart;
 DMA_HandleTypeDef hdma_usart_rx;

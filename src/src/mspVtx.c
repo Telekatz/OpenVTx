@@ -7,13 +7,6 @@
 #include <string.h>
 #include "helpers.h"
 
-#define MSP_HEADER_DOLLAR               0x24
-#define MSP_HEADER_X                    0x58
-#define MSP_HEADER_M                    0x4D
-#define MSP_HEADER_REQUEST              0x3C
-#define MSP_HEADER_RESPONSE             0x3E
-#define MSP_HEADER_ERROR                0x21
-#define MSP_HEADER_SIZE                 8
 
 #define MSP_VTX_CONFIG                  88  //out message         Get vtx settings - betaflight
 #define MSP_SET_VTX_CONFIG              89  //in message          Set vtx settings - betaflight
@@ -100,6 +93,13 @@ void mspSendPacket(uint8_t len)
     delay(10); // Flight Controller needs a bit time to swap TX to RX state
 
     Serial_write_len(txPacket, len);
+
+    mspPacket_t *packet = (mspPacket_t*)txPacket;
+    TRACE_DEBUG_WP("tx     : ");
+    for(uint8_t x = 0; x<3; x++) { TRACE_INFO_WP("%c", txPacket[x]); }
+    for(uint8_t x = 3; x<9+packet->v2.size; x++) { TRACE_INFO_WP(" %02x", txPacket[x]); }
+    TRACE_DEBUG_WP("\r");
+
 }
 
 void mspCreateHeader(void)
@@ -474,6 +474,7 @@ void mspProcessPacket(void)
         reboot_into_bootloader(9600);
         break;
     default:
+        target_mspProcessPacket((mspPacket_t*)rxPacket);
         break;
     }
 }
@@ -570,7 +571,6 @@ void mspProcessSerial(void)
                       for(uint8_t x = 3; x<9+packet->v2.size; x++) { TRACE_INFO_WP(" %02x", rxPacket[x]); }
                       TRACE_INFO_WP("\r");
                       mspProcessPacket();
-                      target_mspProcessPacket((mspPacket_t*)rxPacket);
                     }
                       
                 }
@@ -616,10 +616,12 @@ void mspProcessSerial(void)
                 {
                     if (in_Type != MSP_HEADER_ERROR) {
                       mspPacket_t *packet = (mspPacket_t*)rxPacket;
-                      TRACE_DEBUG_WP("rx OK  : ");
-                      for(uint8_t x = 0; x<3; x++) { TRACE_DEBUG_WP("%c", rxPacket[x]); }
-                      for(uint8_t x = 3; x<6+packet->v1.size; x++) { TRACE_DEBUG_WP(" %02x", rxPacket[x]); }
-                      TRACE_DEBUG_WP("\r");
+                      if (packet->v1.cmd != 182 ) {
+                        TRACE_DEBUG_WP("rx OK  : ");
+                        for(uint8_t x = 0; x<3; x++) { TRACE_DEBUG_WP("%c", rxPacket[x]); }
+                        for(uint8_t x = 3; x<6+packet->v1.size; x++) { TRACE_DEBUG_WP(" %02x", rxPacket[x]); }
+                        TRACE_DEBUG_WP("\r");
+                      }
                       target_mspProcessPacket((mspPacket_t*)rxPacket);
                     }
                 } else {

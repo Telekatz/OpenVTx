@@ -74,6 +74,11 @@ void setup(void)
   rtc6705ResetState(); // During testing registers got messed up. So now it gets reset on boot!
   rtc6705WriteFrequency(myEEPROM.currFreq);
 
+  #ifdef VTX_MODE
+    myEEPROM.vtxMode = VTX_MODE;
+    vtxModeLocked = 1;
+  #endif
+  
   start_serial(myEEPROM.vtxMode);
 
   status_leds_init();

@@ -132,6 +132,7 @@ extern int printf_(const char* format, ...);
 #define TRACE_WARNING_WP(...) { }
 #define TRACE_ERROR_WP(...)   { }
 #define TRACE_FATAL_WP(...)   { while(1); }
+#define TRACE_CMD(...)        { }
 
 #elif (DYN_TRACES == 1)
 
@@ -186,9 +187,11 @@ extern int printf_(const char* format, ...);
 #if (TRACE_LEVEL >= TRACE_LEVEL_FATAL)
 #define TRACE_FATAL(...)      {printf_("-F- " __VA_ARGS__); while(1); }
 #define TRACE_FATAL_WP(...)   {printf_(__VA_ARGS__); while(1); }
+#define TRACE_CMD(...)        {__VA_ARGS__}
 #else
 #define TRACE_FATAL(...)      { while(1); }
 #define TRACE_FATAL_WP(...)   { while(1); }
+#define TRACE_CMD(...)        { }
 #endif
 
 #endif

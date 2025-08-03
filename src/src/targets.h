@@ -22,6 +22,8 @@
 #include "targets/Eachine_TX526/Eachine_TX526.h"
 #elif defined(GENERIC_STM32F10x)
 #include "targets/Generic_STM32F10x/Generic_STM31F10x.h"
+#elif defined(STM32F103_OSD)
+#include "targets/STM32F103_OSD/STM32F103_OSD.h"
 #endif
 
 // These are target specific functions and need to implemented per target!
