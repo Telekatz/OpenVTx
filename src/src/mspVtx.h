@@ -2,14 +2,24 @@
 
 #include <stdint.h>
 
-#define MSP_V1          0x4D
-#define MSP_V2          0x58
-#define MSP_REQUEST     0x3C
-#define MSP_RESPONSE    0x3E
+#define MSP_V1                          0x4D
+#define MSP_V2                          0x58
+#define MSP_REQUEST                     0x3C
+#define MSP_RESPONSE                    0x3E
+
+#define MSP_HEADER_DOLLAR               0x24
+#define MSP_HEADER_X                    0x58
+#define MSP_HEADER_M                    0x4D
+#define MSP_HEADER_REQUEST              0x3C
+#define MSP_HEADER_RESPONSE             0x3E
+#define MSP_HEADER_ERROR                0x21
+#define MSP_HEADER_SIZE                 8
 
 #define MSP_DEBUG                       254  // out message: debug1,debug2,debug3,debug4
 #define MSP_SET_OSD_CANVAS              188  // in message:  Set OSD canvas size COLSxROWS
 #define MSP_DISPLAYPORT                 182  // out message: External OSD displayport mode
+#define MSP_STATUS                      101  // out message: Cycletime & errors_count & sensor present & box activation & current setting number
+
 
 typedef enum
 {
@@ -48,8 +58,15 @@ typedef struct mspPacket_s {
   };
 }  mspPacket_t;
 
+extern uint8_t mspState;
+
 void mspQueryFlightController(uint32_t time_ms);
 void mspBuildPacket(void);
 void mspProcessSerial(void);
 void mspUpdate(uint32_t now);
 void mspReset();
+void mspSendSimpleRequest(uint16_t opCode);
+void mspCreateHeader(void);
+void mspSendPacket(uint8_t len);
+uint8_t mspCalcCrc(uint8_t crc, unsigned char a);
+

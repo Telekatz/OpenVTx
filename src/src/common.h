@@ -7,7 +7,9 @@
 
 #define TRAMP_BAUD                      9600
 #define SMARTAUDIO_BAUD                 4800
+#ifndef MSP_BAUD
 #define MSP_BAUD                        9600 // ~10% decrease in setup time increasing to 19200. But not worth it for the inceased chance in packets errors due to heat.
+#endif
 
 #define PROTOCOL_CHECK_TIMEOUT          500
 
