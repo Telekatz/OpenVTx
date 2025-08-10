@@ -81,6 +81,10 @@ void MX_TIM1_Init(void) {
   sConfigOC.OCPolarity = TIM_OCPOLARITY_LOW;
   sConfigOC.OCNPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  
   if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, ((OSD_TIM_CHANNEL-1)<<2)) != HAL_OK)
   {
       _Error_Handler(__FILE__, __LINE__);

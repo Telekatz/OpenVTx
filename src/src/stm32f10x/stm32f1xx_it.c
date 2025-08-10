@@ -42,6 +42,7 @@
 
 /* External variables --------------------------------------------------------*/
 extern UART_HandleTypeDef huart;
+extern ADC_HandleTypeDef hadc1;
 
 /******************************************************************************/
 /*            Cortex-M3 Processor Interruption and Exception Handlers         */ 
@@ -267,4 +268,10 @@ void USART3_IRQHandler(void)
 {
   HAL_UART_IRQHandler(&huart);
 }
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
+
+void ADC1_2_IRQHandler(void)
+{
+  HAL_ADC_IRQHandler(&hadc1);
+}
+
+

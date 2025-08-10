@@ -116,36 +116,12 @@ int main(void)
   TRACE_INFO("Compiled: %s %s --\r", __DATE__, __TIME__);
 
   flash_init();
+  
+  extern void setup(void);
+  extern void loop(void);
+  setup();
+  while(1) loop();
 
-  /*
-  led1_pin = gpio_out_setup(LED1, 1);
-  pwm_pin = pwm_init(PB5);
-
-  pwm_out_write(pwm_pin,1500);
-
-  serial_begin(9600,UART_TX,UART_RX,1);
-
-
-  while (1)
-  {
-    gpio_out_toggle(led1_pin);
-      delay(1000);
-      
-    if(serial_available()) {
-      uint8_t inbyte = serial_read();
-
-      pwm_out_write(pwm_pin,(inbyte - 'a') * 100);
-    }
-
-    //TRACE_INFO_WP("Tick\r");
-  }
-*/
-
-    extern void setup(void);
-    extern void loop(void);
-    setup();
-    while(1) loop();
-
-    return 0;
+  return 0;
 }
 

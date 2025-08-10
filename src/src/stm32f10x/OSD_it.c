@@ -196,14 +196,6 @@ void  __attribute__((optimize("Ofast"))) csync_callback(void) {
       dmaSpiB->CNDTR = LINEBUFFER_OUT_SIZE;
       dmaSpiA->CNDTR = LINEBUFFER_OUT_SIZE;
       
-
-      // 0011 0000 1001 0001
-      // 0: Channel EN
-      // 4: Read from memory
-      // 7: Memory inc mode EN
-      // 12-13: Piority very high
-
-      //ccr = dmaSpiA->CCR | DMA_CCR_EN;
       ccr = DMA_CCR_EN | DMA_CCR_DIR | DMA_CCR_MINC | DMA_CCR_PL;
 
       dmaSpiA->CCR = ccr;
@@ -214,7 +206,6 @@ void  __attribute__((optimize("Ofast"))) csync_callback(void) {
     cBuffer = 1 - cBuffer;
 
     if( line < lastLine) {
-      gpio_out_write(debug_pin, 1);
       uint16_t fontRow = ((line - firstLine) % FONT_HEIGHT);
       uint32u16u8_t ch1 = {0};
       uint32u16u8_t ch2 = {0};
@@ -284,7 +275,6 @@ void  __attribute__((optimize("Ofast"))) csync_callback(void) {
 
       lineCounter = 0;
     }
-    gpio_out_write(debug_pin, 0);
   }
 
   line += 1;

@@ -122,12 +122,12 @@ void OSD_drawScreen(void) {
 void print(uint8_t x, uint8_t y, uint8_t c) {
   uint16_t pos = x + y * OSD_COLUMNS;
 
-  screenBuffer[1-screenBufferActive][pos++] = c;
+  screenBuffer[screenBufferDraw][pos++] = c;
 }
 
 void testScreen(void) {
   for(uint16_t x = 0; x < VIDEO_BUFFER_CHARS; x++ ) {
-    screenBuffer[1-screenBufferActive][x] = x;//'0' + (x % 10);
+    screenBuffer[screenBufferDraw][x] = '0' + (x % 10);
   }
 }
 
@@ -192,6 +192,7 @@ void OSD_init(void) {
   OSD_hal_init();
 
   setSyncMode(OFF);
+  setSyncMode(AUTOMATIC);
 
   OSD_clearScreen();
   //#ifdef TRACE_LEVEL

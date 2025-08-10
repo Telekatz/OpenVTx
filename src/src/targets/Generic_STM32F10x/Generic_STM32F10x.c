@@ -1,13 +1,29 @@
 #include "targets.h"
 #include "common.h"
 #include "openVTxEEPROM.h"
-//#include "rtc6705.h"
 #include "gpio.h"
 #include "helpers.h"
 #include <math.h>
 #include "mspVtx.h"
+#include "rtc6705.h"
+#include "rf_pa.h"
+#if HAS_OSD == 1
+#include "OSD.h"
+#endif
 
-#define OUTPUT_POWER_INTERVAL 5 // ms
+#define OUTPUT_POWER_INTERVAL   5 // ms
+#define MSP_VTXSTATUS           0x4802
+
+typedef enum {
+    MSP_DP_HEARTBEAT = 0,         // Release the display after clearing and updating
+    MSP_DP_RELEASE = 1,         // Release the display after clearing and updating
+    MSP_DP_CLEAR_SCREEN = 2,    // Clear the display
+    MSP_DP_WRITE_STRING = 3,    // Write a string at given coordinates
+    MSP_DP_DRAW_SCREEN = 4,     // Trigger a screen draw
+    MSP_DP_OPTIONS = 5,         // Not used by Betaflight. Reserved by Ardupilot and INAV
+    MSP_DP_SYS = 6,             // Display system element displayportSystemElement_e at given coordinates
+    MSP_DP_COUNT,
+} displayportMspCommand_e;
 
 /* SA2.1 powerlevels in dBm.
  *
@@ -26,20 +42,14 @@ uint8_t saPowerLevelsLabel[SA_NUM_POWER_LEVELS * POWER_LEVEL_LABEL_LENGTH] = {'1
 gpio_out_t rtcen_pin;
 gpio_out_t bias2_pin;
 gpio_pwm_t outputPower_pin;
+uint8_t armed;
 
-
-#define CAL_FREQ_SIZE 7
-#define CAL_DBM_SIZE 6
-uint8_t calDBm[CAL_DBM_SIZE] = {1, 10, 14, 17, 20, 21};
-uint16_t calFreqs[CAL_FREQ_SIZE] =  { 5650, 5700, 5750, 5800, 5850, 5900, 5950};
-uint16_t calVpd[CAL_DBM_SIZE][CAL_FREQ_SIZE] = {                                        
-    { 1799, 1820, 1841, 1863, 1885, 1909, 1935 }, // 1mW
-    { 1866, 1886, 1907, 1930, 1954, 1981, 2011 }, // 10 mW
-    { 1909, 1929, 1952, 1975, 2002, 2033, 2070 }, // 25 mW
-    { 1958, 1980, 2004, 2030, 2062, 2100, 2147 }, // 50 mW
-    { 2031, 2056, 2085, 2121, 2165, 2222, 2301 }, // 100 mW
-    { 2031, 2056, 2085, 2121, 2165, 2222, 2301 }
-};
+paCalibration_t paCal[PA_CAL_TABLE_SIZE] = {{5,  0, { 5650, 5700, 5750, 5800, 5850, 5900, 5950 }},    //frequency
+                                            {1,  0, { 1799, 1820, 1841, 1863, 1885, 1909, 1935 }},    // 1mW
+                                            {10, 0, { 1866, 1886, 1907, 1930, 1954, 1981, 2011 }},    // 10 mW
+                                            {14, 0, { 1909, 1929, 1952, 1975, 2002, 2033, 2070 }},    // 25 mW
+                                            {17, 0, { 1958, 1980, 2004, 2030, 2062, 2100, 2147 }},    // 50 mW
+                                            {20, 0, { 2031, 2056, 2085, 2121, 2165, 2222, 2301 }} };  // 100 mW
 
 #if USE_CUSTOM_FREQ_TABLE == 1
 const uint8_t channelFreqLabel[32] = {
@@ -59,62 +69,12 @@ uint16_t channelFreqTable[FREQ_TABLE_SIZE] = {
 };
 #endif
 
-uint16_t bilinearInterpolation(float dB)
-{
-  uint16_t tempFreq = myEEPROM.currFreq;
-  uint8_t i;
-  uint8_t calFreqsIndex = 0;
-  uint8_t calDBmIndex = 0;
-
-  dB = dB + OFFSET;
-
-  if (tempFreq < 5650) tempFreq = 5650;
-  if (tempFreq > 5950) tempFreq = 5950;
-
-  for (i = 0; i < (ARRAY_SIZE(calFreqs) - 1); i++)
-  {
-    if (tempFreq < calFreqs[i + 1])
-    {
-      calFreqsIndex = i;
-      break;
-    }
-  }
-
-  for (i = 0; i < (ARRAY_SIZE(calDBm) - 1); i++)
-  {
-    if (dB < calDBm[i + 1])
-    {
-      calDBmIndex = i;
-      break;
-    }
-  }
-
-  float x = dB;
-  float x1 = calDBm[calDBmIndex];
-  float x2 = calDBm[calDBmIndex + 1];
-
-  float y = tempFreq;
-  float y1 = calFreqs[calFreqsIndex];
-  float y2 = calFreqs[calFreqsIndex + 1];
-
-  float Q11 = calVpd[calDBmIndex][calFreqsIndex];
-  float Q12 = calVpd[calDBmIndex][calFreqsIndex + 1];
-  float Q21 = calVpd[calDBmIndex + 1][calFreqsIndex];
-  float Q22 = calVpd[calDBmIndex + 1][calFreqsIndex + 1];
-
-  float fxy1 = Q11 * (x2 - x) / (x2 - x1) + Q21 * (x - x1) / (x2 - x1);
-  float fxy2 = Q12 * (x2 - x) / (x2 - x1) + Q22 * (x - x1) / (x2 - x1);
-
-  uint16_t fxy = fxy1 * (y2 - y) / (y2 - y1) + fxy2 * (y - y1) / (y2 - y1);
-
-  return fxy;
-}
-
 void target_rfPowerAmpPinSetup(void)
 {
   TRACE_INFO("target_rfPowerAmpPinSetup\r");
-  rtcen_pin = gpio_out_setup(RTC_ENABLE, 0);
   outputPower_pin = pwm_init(RTC_BIAS);
+  rtcen_pin = gpio_out_setup(RTC_ENABLE, 0);
+  delay(500);
 }
 
 void target_set_power_dB(float dB)
@@ -128,14 +88,55 @@ void target_set_power_dB(float dB)
   pwm_out_write(outputPower_pin,paValue);
 }
 
+void sendVtxStatus() {
+  mspPacket_t *packet = (mspPacket_t*)txPacket;    
+  uint16_t payloadSize = 2;
+  int i;
+
+  mspCreateHeader();
+
+  packet->v2.cmd = MSP_VTXSTATUS;
+  packet->v2.size = payloadSize;
+  packet->v2.payload[0] = temperature & 0xff;
+  packet->v2.payload[1] = temperature >> 8;
+  
+  uint8_t crc = 0;
+  for(i = 3; i < MSP_HEADER_SIZE+payloadSize; i++) {
+      crc = mspCalcCrc(crc, txPacket[i]);
+  }
+
+  packet->v2.payload[payloadSize] = crc;
+
+  mspSendPacket(MSP_HEADER_SIZE+payloadSize+1);
+
+}
+
 void target_mspProcessPacket(mspPacket_t __attribute__((unused)) *packet)
 {
   uint16_t debug0;
   uint16_t debug1;
 
+
   switch (packet->v1.version) {
 
     case MSP_V1:
+      switch (packet->v1.cmd) {
+        case MSP_DISPLAYPORT:
+#if HAS_OSD == 1
+          switch (packet->v1.payload[0]) {
+            case MSP_DP_HEARTBEAT:    OSD_heartbeat(); break;
+            case MSP_DP_CLEAR_SCREEN: OSD_clearScreen(); break;
+            case MSP_DP_WRITE_STRING: OSD_writeString(packet->v1.payload, packet->v1.size); break;
+            case MSP_DP_DRAW_SCREEN:  OSD_drawScreen(); break;
+            default: TRACE_INFO("MSP_DP unkw %02x\r", packet->v1.payload[0]); break;
+          } //switch (packet->v1.payload[0])
+#endif
+          break;
+
+        default:
+          TRACE_INFO("CMDV1 unkw %i\r", packet->v1.cmd);
+          break;
+      } // switch (packet->v1.cmd)
       break;
 
     case MSP_V2:
@@ -164,9 +165,26 @@ void target_mspProcessPacket(mspPacket_t __attribute__((unused)) *packet)
               break;
           }
           break;
-
+        case MSP_STATUS:
+          if ( !armed && (packet->v2.payload[6] & 0x01)) {
+            TRACE_INFO("FC ARMED\r");
+            armed = 1;
+          } else if ( armed && !(packet->v2.payload[6] & 0x01)) {
+            TRACE_INFO("FC DISARMED\r");
+            armed = 0;
+          }
+          break;
+        case MSP_PACALTABLE:
+          sendPaCalibration(packet->v2.payload[0]);
+          break;
+        case MSP_SET_PACALTABLE:
+          setPaCalibration(packet);
+          break;
+        case MSP_VTXSTATUS:
+          sendVtxStatus();
+          break;
         default:
-          
+          TRACE_INFO("CMDV2 unkw %i\r", packet->v2.cmd);
           break;
         } //switch (packet->v2.cmd)
     default:
@@ -177,12 +195,31 @@ void target_mspProcessPacket(mspPacket_t __attribute__((unused)) *packet)
 void target_setup(void)
 {
   TRACE_INFO("target_setup\r");
+  initPaCalibration();
   target_rfPowerAmpPinSetup();
-  
+#if HAS_OSD == 1
+  OSD_init();
+#endif
 }
+
+extern volatile uint32_t ccrDebug;
 
 void target_loop(void)
 {
+	static uint32_t lastTick=0;
+  static uint32_t loops = 0;
+
+  if((HAL_GetTick() - lastTick) > 1000) {
+    lastTick = HAL_GetTick();
+    HAL_ADC_Start_IT(&hadc1);
+    //mspSendSimpleRequest(MSP_STATUS);
+    //TRACE_INFO("Rounds %i; Temp: %i\r", loops, temperature );
+    loops = 0;
+  }
+#if HAS_OSD == 1
+  OSD_update();
+#endif
   //TRACE_INFO("target_loop\r");
+  loops +=1;
 }
 

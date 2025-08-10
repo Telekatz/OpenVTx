@@ -3,6 +3,7 @@
 #include <string.h>
 #include "common.h"
 #include "stm32f1xx_hal.h"
+#include "helpers.h"
 
 #define eeprom_busy_wait()
 #define E2END 0xfe
@@ -20,6 +21,10 @@
 #define EE_START        ADDR_FLASH_PAGE_124
 #define EE_PAGES        4
 #define WORDS_PER_PAGE  (FLASH_PAGE_SIZE/2)
+
+#define CAL_START       ADDR_FLASH_PAGE_122
+#define CAL_PAGES       2
+#define CAL_PER_PAGE    (FLASH_PAGE_SIZE/ sizeof(paCalibration_t))
 
 void eeprom_write_byte(uint8_t p, uint8_t v);
 uint8_t eeprom_read_byte(uint8_t p);
@@ -59,8 +64,6 @@ typedef struct _uint16u8_t {
   EE_MEMORY byte;
   };
 } uint16u8_t;
-
-//#define USE_RAM
 
 #if defined(USE_RAM)
 uint8_t ee_ram[256];
@@ -189,6 +192,71 @@ static void __attribute__((unused)) push_flashdata(uint16_t data) {
   }
 }
 
+void eeprom_seek_paCal(paCalibration_t* cal, uint8_t idx) {
+  uint16_t x = (CAL_PER_PAGE * CAL_PAGES) - 1;
+  paCalibration_t* calEE = (paCalibration_t*)CAL_START;
+
+  do {
+    if ((calEE[x].flag & 0x0f) == idx) {
+      memcpy(cal ,&calEE[x], sizeof(paCalibration_t));
+      TRACE_DEBUG("EE cal read %i\r", idx);
+      return;
+    }
+  } while (x--);
+
+}
+
+uint8_t push_paCal(paCalibration_t* cal, uint8_t idx) {
+  uint16_t x = 0;
+  paCalibration_t* calEE = (paCalibration_t*)CAL_START;
+  uint64_t data[2];
+  paCalibration_t* dataP = (paCalibration_t*)data;
+
+  eeprom_seek_paCal((paCalibration_t*)data, idx);
+  if (memcmp(&data, cal, sizeof(paCalibration_t)) == 0) {
+    TRACE_DEBUG("EE cal match:\r");
+    return 1;
+  }
+
+  for (x = 0; x < (CAL_PER_PAGE * CAL_PAGES); x++) {
+    if ((calEE[x].flag & 0xf0) == 0xf0) {
+      break;
+    }
+  }
+  
+  if( x == CAL_PER_PAGE * CAL_PAGES) {
+    TRACE_DEBUG("EE cal full:\r");
+    return 0;
+  }
+
+  memcpy(data ,cal, sizeof(paCalibration_t));
+  dataP->flag = 0x80 | idx;
+
+  HAL_FLASH_Unlock();
+  HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, (uint32_t)&calEE[x], data[0]);
+  HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, (uint32_t)&calEE[x] + 8, data[1]);
+  HAL_FLASH_Lock();
+
+  TRACE_DEBUG_WP("EE cal write %i: %x: \r",x ,&calEE[x]);
+  for (uint8_t i=0; i<sizeof(paCalibration_t); i++) {
+    TRACE_DEBUG_WP("%x ", ((uint8_t*)&calEE[x])[i]);
+  }
+  TRACE_DEBUG_WP("\r");
+
+  return 1;
+}
+
+void reorg_paCal(uint8_t excludeIdx) {
+  erase_pages(CAL_START, CAL_PAGES);
+  TRACE_DEBUG("EE cal erase flash:\r");
+
+  for (uint8_t x = 1; x < ARRAY_SIZE(paCal); x++) {
+    if ((x != excludeIdx) && (paCal[x].flag != 0)) {
+      push_paCal(&paCal[x], x);
+      TRACE_DEBUG("EE cal store %i:\r", x);
+    }
+  }
+}
 //------------------------------------------------------------------------------
 //         Exported functions
 //------------------------------------------------------------------------------
@@ -197,7 +265,7 @@ static void __attribute__((unused)) push_flashdata(uint16_t data) {
 void eeprom_write_byte(uint8_t p, uint8_t v) {
 
   uint32_t c = (uint32_t)p;
-  TRACE_DEBUG("EE_W A:%02x V:%02x\r",(uint8_t)c,v);
+  //TRACE_DEBUG("EE_W A:%02x V:%02x\r",(uint8_t)c,v);
 
   if(eeprom_read_byte(p) == v) {
     return;
@@ -241,6 +309,24 @@ uint8_t eeprom_read_byte(uint8_t p) {
 #endif
 }
 
+void eeprom_read_paCal(paCalibration_t* cal, uint8_t idx) {
+  if(idx > 0x0f) {
+    return;
+  }
+  eeprom_seek_paCal(cal, idx);
+
+}
+
+void eeprom_write_paCal(paCalibration_t* cal, uint8_t idx) {
+  if(idx > 0x0f) {
+    return;
+  }
+  if (push_paCal(cal, idx) == 0) {
+    reorg_paCal(idx);
+    push_paCal(cal, idx);
+  }
+
+}
 
 int16_t flash_init(void) {
   startpage = get_startpage();
