@@ -21,6 +21,25 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
     }
 }
 
+void measureTemperature(void) {
+    uint32_t adc_value = 0;
+    uint32_t Vsense_mV = 0;
+
+    switch (HAL_ADC_PollForConversion(&hadc1, 0)) {
+      case HAL_OK:
+        adc_value = HAL_ADC_GetValue(&hadc1);
+        Vsense_mV = (adc_value * 3300) / 4095;
+        temperature = (((1430 - (int32_t)Vsense_mV) * 10) / 43) + 250;
+        HAL_ADC_Start(&hadc1);
+        break;
+      case HAL_ERROR:
+      case HAL_BUSY:
+      case HAL_TIMEOUT:
+      default:
+        HAL_ADC_Start(&hadc1);
+        break;
+    }
+}
 
 void MX_ADC1_Init(void)
 {
@@ -53,8 +72,8 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* hadc)
   if(hadc->Instance==ADC1)
   {
     __HAL_RCC_ADC1_CLK_ENABLE();
-    HAL_NVIC_SetPriority(ADC1_2_IRQn, 10, 0);
-    HAL_NVIC_EnableIRQ(ADC1_2_IRQn);
+    //HAL_NVIC_SetPriority(ADC1_2_IRQn, 10, 0);
+    //HAL_NVIC_EnableIRQ(ADC1_2_IRQn);
   }
 }
 

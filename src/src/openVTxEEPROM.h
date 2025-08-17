@@ -27,6 +27,7 @@ typedef struct
     uint16_t currPowermW; // Required due to rounding errors when converting between dBm and mW
     uint8_t unlocked;
     vtxMode_e vtxMode;
+    uint8_t displayport;
 } openVTxEEPROM;
 
 extern openVTxEEPROM myEEPROM;

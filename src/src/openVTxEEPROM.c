@@ -10,7 +10,9 @@ uint32_t updateEEPROMtime = 0;
 
 void updateEEPROM(void)
 {
+#ifndef USE_STICK_COMMANDS
     updateEEPROMtime = millis();
+#endif
 }
 
 void defaultEEPROM(void)
@@ -25,6 +27,7 @@ void defaultEEPROM(void)
     myEEPROM.currPowerdB = 14;
     myEEPROM.currPowermW = 25; // Required due to rounding errors when converting between dBm and mW
     myEEPROM.unlocked = 1;
+    myEEPROM.displayport = 1;
 
     updateEEPROM();
 }

@@ -61,6 +61,14 @@ typedef struct {
   uint32_t cr[256][18];
 } font_t;
 
+typedef enum {
+  OSD_INIT,
+  OSD_OFF,  
+  OSD_MSP,
+  OSD_VTX,
+  OSD_EXIT_VTX
+} osdState_e;
+
 extern font_t *osdFont[];
 
 extern uint8_t screenBuffer[2][VIDEO_BUFFER_CHARS];
@@ -71,7 +79,9 @@ extern volatile syncState_t syncState;
 extern syncMode_t syncMode;
 extern videoMode_t videoMode;
 extern uint8_t videoModeLocked;
+extern osdState_e osdState;
 
+void setSyncMode(syncMode_t mode);
 void OSD_init(void);
 void OSD_heartbeat(void);
 void OSD_clearScreen(void);
@@ -80,7 +90,8 @@ void OSD_writeString(uint8_t *payload, uint8_t size);
 void OSD_drawScreen(void);
 void testScreen(void);
 size_t printNumber(uint8_t x, uint8_t y, unsigned long long n, uint8_t base);
-void OSD_update();
+void OSD_setCanvas(void);
+void OSD_update(void);
 
 
 

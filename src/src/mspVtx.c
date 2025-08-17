@@ -6,7 +6,7 @@
 #include "serial.h"
 #include <string.h>
 #include "helpers.h"
-
+#include "mspMenu.h"
 
 #define MSP_VTX_CONFIG                  88  //out message         Get vtx settings - betaflight
 #define MSP_SET_VTX_CONFIG              89  //in message          Set vtx settings - betaflight
@@ -65,6 +65,9 @@ uint32_t nextFlightControllerQueryTime = 0;
 uint8_t mspState = GET_VTX_TABLE_SIZE;
 uint8_t eepromWriteRequired = 0;
 uint8_t checkingIndex = 0;
+uint8_t fcArmed = 0;
+uint16_t rcChannel[4] = {1500};
+uint8_t stickPos = 0;
 
 static uint8_t state, in_idx, in_CRC;
 static uint16_t in_Function, in_PayloadSize, in_Type;
@@ -96,8 +99,8 @@ void mspSendPacket(uint8_t len)
 
     mspPacket_t *packet = (mspPacket_t*)txPacket;
     TRACE_DEBUG_WP("tx     : ");
-    for(uint8_t x = 0; x<3; x++) { TRACE_INFO_WP("%c", txPacket[x]); }
-    for(uint8_t x = 3; x<9+packet->v2.size; x++) { TRACE_INFO_WP(" %02x", txPacket[x]); }
+    for(uint8_t x = 0; x<3; x++) { TRACE_DEBUG_WP("%c", txPacket[x]); }
+    for(uint8_t x = 3; x<9+packet->v2.size; x++) { TRACE_DEBUG_WP(" %02x", txPacket[x]); }
     TRACE_DEBUG_WP("\r");
 
 }
@@ -310,6 +313,18 @@ void clearVtxTable(void)
     eepromWriteRequired = 1;
 }
 
+uint8_t mspStickpos(void) {
+  uint8_t result = 0;
+  for (uint8_t i = 0; i < 4; i++) {
+    result >>= 2;
+    if      (rcChannel[i] > 500   && rcChannel[i] < 1250  ) result |= 0b01000000;
+    else if (rcChannel[i] >= 1250 && rcChannel[i] <= 1750 ) result |= 0b00000000;
+    else if (rcChannel[i] > 1750  && rcChannel[i] < 2500  ) result |= 0b10000000;
+    else result |= 0b11000000;
+  }
+  return result;
+}
+
 void mspProcessPacket(void)
 {
     uint16_t value;
@@ -473,6 +488,25 @@ void mspProcessPacket(void)
     case MSP_REBOOT:
         reboot_into_bootloader(9600);
         break;
+    case MSP_STATUS:
+        if ( !fcArmed && (((mspPacket_t*)rxPacket)->v2.payload[6] & 0x01)) {
+            TRACE_INFO("FC ARMED\r");
+            fcArmed = 1;
+        } else if ( fcArmed && !(((mspPacket_t*)rxPacket)->v2.payload[6] & 0x01)) {
+            TRACE_INFO("FC DISARMED\r");
+            fcArmed = 0;
+        }
+        break;
+    case MSP_RC:
+        memcpy(rcChannel, (uint16_t*)((mspPacket_t*)rxPacket)->v2.payload, sizeof(rcChannel));
+        stickPos = mspStickpos();
+
+        //TRACE_INFO_WP("RC received %02x: ", mspStickpos());
+        //for(uint8_t x = 0; x<4; x++) {
+        //  TRACE_INFO_WP("%i ", rcChannel[x]) }
+        //TRACE_INFO_WP("\r");
+
+        break;
     default:
         target_mspProcessPacket((mspPacket_t*)rxPacket);
         break;
@@ -566,10 +600,10 @@ void mspProcessSerial(void)
                     if (in_Type != MSP_HEADER_ERROR) {
                       
                       mspPacket_t *packet = (mspPacket_t*)rxPacket;
-                      TRACE_INFO_WP("rx OK  : ");
-                      for(uint8_t x = 0; x<3; x++) { TRACE_INFO_WP("%c", rxPacket[x]); }
-                      for(uint8_t x = 3; x<9+packet->v2.size; x++) { TRACE_INFO_WP(" %02x", rxPacket[x]); }
-                      TRACE_INFO_WP("\r");
+                      TRACE_DEBUG_WP("rx OK  : ");
+                      for(uint8_t x = 0; x<3; x++) { TRACE_DEBUG_WP("%c", rxPacket[x]); }
+                      for(uint8_t x = 3; x<9+packet->v2.size; x++) { TRACE_DEBUG_WP(" %02x", rxPacket[x]); }
+                      TRACE_DEBUG_WP("\r");
                       mspProcessPacket();
                     }
                       
@@ -622,6 +656,7 @@ void mspProcessSerial(void)
                         for(uint8_t x = 3; x<6+packet->v1.size; x++) { TRACE_DEBUG_WP(" %02x", rxPacket[x]); }
                         TRACE_DEBUG_WP("\r");
                       }
+                      mspProcessPacketV1((mspPacket_t*)rxPacket);
                       target_mspProcessPacket((mspPacket_t*)rxPacket);
                     }
                 } else {
@@ -684,6 +719,11 @@ void mspUpdate(uint32_t now)
                 setPowerdB(myEEPROM.currPowerdB);
                 rtc6705WriteFrequency(getFreqByIdx(myEEPROM.channel));
             }
+            #ifdef USE_STICK_COMMANDS
+              mspSendSimpleRequest(MSP_STATUS);
+              if (!fcArmed) 
+                mspSendSimpleRequest(MSP_RC);
+            #endif
             break;
         default:
             return;

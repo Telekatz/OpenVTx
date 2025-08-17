@@ -6,6 +6,7 @@
 #define POWER_LEVEL_LABEL_LENGTH    3
 #define USE_CUSTOM_FREQ_TABLE       1
 #define PA_CAL_TABLE_SIZE           6
+#define USE_STICK_COMMANDS          1
 
 #if USE_CUSTOM_FREQ_TABLE == 1
 #define BAND_COUNT                  4
@@ -17,8 +18,8 @@
 extern uint8_t saPowerLevelsLut[SA_NUM_POWER_LEVELS];
 extern uint8_t saPowerLevelsLabel[SA_NUM_POWER_LEVELS * POWER_LEVEL_LABEL_LENGTH];
 
-#define MSP_BAUD          115200
-#define USART             1
+#define MSP_BAUD          57600
+#define USART             2
 #define VTX_MODE          MSP
 
 #if USART == 1

@@ -41,9 +41,13 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "OSD_font_betaflight.h"
 #include "OSD_font_extra_large.h"
 #include "OSD_font_impact.h"
+#include "openVTxEEPROM.h"
 
 #define ENABLE_VSYNC_IRQ()      HAL_NVIC_EnableIRQ(OSD_VSYNC_IRQ)
 #define DISABLE_VSYNC_IRQ()     HAL_NVIC_DisableIRQ(OSD_VSYNC_IRQ)
+
+#define ENABLE_CSYNC_IRQ()      HAL_NVIC_EnableIRQ(OSD_CSYNC_IRQ);
+#define DISABLE_CSYNC_IRQ()     HAL_NVIC_DisableIRQ(OSD_CSYNC_IRQ);
 
 uint8_t screenBuffer[2][VIDEO_BUFFER_CHARS];
 uint8_t screenBufferActive = 0;
@@ -52,8 +56,8 @@ uint16_t firstLine = FIRST_LINE;
 uint8_t firstCol = FIRST_COL;
 volatile syncState_t syncState = INTERNAL_SYNC;
 syncMode_t syncMode = AUTOMATIC;
-uint8_t canvasSet = 0;
 uint8_t heartbeat = 0;
+osdState_e osdState = OSD_INIT;
 
 font_t *osdFont[] = { (font_t*)OSD_font_impact,
                       (font_t*)OSD_font_extra_large};
@@ -64,21 +68,25 @@ void setSyncMode(syncMode_t mode) {
     case AUTOMATIC:
       syncMode = AUTOMATIC;
       ENABLE_VSYNC_IRQ();
+      ENABLE_CSYNC_IRQ();
       syncState = INTERNAL_SYNC;
       break;
     case EXTERNAL:
       ENABLE_VSYNC_IRQ();
+      ENABLE_CSYNC_IRQ();
       TIM1->OSD_TIM_CCR = 0;
       syncState = EXTERNAL_SYNC;
       syncMode = EXTERNAL;
       break;
     case INTERNAL:
       DISABLE_VSYNC_IRQ();
+      DISABLE_CSYNC_IRQ();
       syncState = INTERNAL_SYNC;
       syncMode = INTERNAL;
       break;
     case OFF:
       DISABLE_VSYNC_IRQ();
+      DISABLE_CSYNC_IRQ();
       TIM1->OSD_TIM_CCR = 0;
       syncState = INTERNAL_SYNC;
       syncMode = OFF;
@@ -104,7 +112,6 @@ void OSD_print(uint8_t x, uint8_t y, const char *str) {
   while (*str) {
     screenBuffer[screenBufferDraw][pos++] = *str++;
   }
-  OSD_clearScreen();
 }
 
 void OSD_writeString(uint8_t *payload, uint8_t size) {
@@ -132,7 +139,7 @@ void testScreen(void) {
 }
 
 
-void OSD_setCanvas() {
+void OSD_setCanvas(void) {
     uint16_t payloadSize = 2;
 
     mspCreateHeader();
@@ -160,27 +167,30 @@ void OSD_setCanvas() {
     mspSendPacket(MSP_HEADER_SIZE+payloadSize+1);
 }
 
-void OSD_update() {
+void OSD_update(void) {
   static uint32_t lastTick=0;
+
   if (mspState == MONITORING) {
-    if (videoModeLocked && !canvasSet) {
-      OSD_setCanvas();
-      canvasSet = 1;
-      
-      TRACE_INFO("MSP send canvas size\r");
+    if (videoModeLocked && (osdState == OSD_INIT)) {
+      if (myEEPROM.displayport) {
+        OSD_setCanvas();
+        TRACE_INFO("MSP send canvas size\r");
+      }
+      osdState = OSD_MSP;
     }
     if (syncMode == OFF)
       setSyncMode(AUTOMATIC);
+    
   }
   
-
   if((HAL_GetTick() - lastTick) > 100) {
     lastTick = HAL_GetTick();
     if (heartbeat == 1) {
       OSD_clearScreen();
       OSD_drawScreen();
       OSD_clearScreen();
-    }else if (heartbeat > 1) {
+      heartbeat--;
+    }else if (heartbeat > 1 && osdState == OSD_MSP) {
       heartbeat--;
     }
   }
@@ -192,14 +202,13 @@ void OSD_init(void) {
   OSD_hal_init();
 
   setSyncMode(OFF);
-  setSyncMode(AUTOMATIC);
+  if (myEEPROM.displayport)
+    setSyncMode(AUTOMATIC);
 
   OSD_clearScreen();
   //#ifdef TRACE_LEVEL
-  TRACE_CMD(testScreen(););
+  //TRACE_CMD(testScreen(););
   //#endif
   OSD_drawScreen();
 
 }
-
-

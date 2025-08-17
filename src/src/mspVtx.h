@@ -19,7 +19,7 @@
 #define MSP_SET_OSD_CANVAS              188  // in message:  Set OSD canvas size COLSxROWS
 #define MSP_DISPLAYPORT                 182  // out message: External OSD displayport mode
 #define MSP_STATUS                      101  // out message: Cycletime & errors_count & sensor present & box activation & current setting number
-
+#define MSP_RC                          105  // out message: RC channels and more
 
 typedef enum
 {
@@ -59,6 +59,9 @@ typedef struct mspPacket_s {
 }  mspPacket_t;
 
 extern uint8_t mspState;
+extern uint8_t fcArmed;
+extern uint16_t rcChannel[];
+extern uint8_t stickPos;
 
 void mspQueryFlightController(uint32_t time_ms);
 void mspBuildPacket(void);

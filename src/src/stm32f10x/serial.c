@@ -7,7 +7,7 @@
 #include "gpio.h"
 #include "platform.h"
 
-#define RX_BUFFER_SIZE 256
+#define RX_BUFFER_SIZE 192
 
 UART_HandleTypeDef huart;
 DMA_HandleTypeDef hdma_usart_rx;
@@ -48,20 +48,26 @@ void HAL_UART_MspInit(UART_HandleTypeDef* uartHandle) {
   if(uartHandle->Instance==USART1)
   {
     __HAL_RCC_USART1_CLK_ENABLE();
+    #ifndef USART_USE_DMA
     HAL_NVIC_SetPriority(USART1_IRQn, 10, 0);
     HAL_NVIC_EnableIRQ(USART1_IRQn);
+    #endif
   }
   else if(uartHandle->Instance==USART2)
   {
     __HAL_RCC_USART2_CLK_ENABLE();
+    #ifndef USART_USE_DMA
     HAL_NVIC_SetPriority(USART2_IRQn, 10, 0);
     HAL_NVIC_EnableIRQ(USART2_IRQn);
+    #endif
   }
   else if(uartHandle->Instance==USART3)
   {
     __HAL_RCC_USART3_CLK_ENABLE();
+    #ifndef USART_USE_DMA
     HAL_NVIC_SetPriority(USART3_IRQn, 10, 0);
     HAL_NVIC_EnableIRQ(USART3_IRQn);
+    #endif
   }
 }
 
@@ -199,5 +205,16 @@ void serial_flush(void)
   // not needed...
 }
 
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
+  volatile __attribute__((unused)) uint32_t sr = huart->Instance->SR;
+  volatile __attribute__((unused)) uint8_t dr = huart->Instance->DR;
 
+  TRACE_ERROR("\rUART error: sr:%i  dr:%i\r", sr,dr);
+  
+  #if USART_USE_DMA == 1
+  HAL_UART_Receive_DMA(huart, rx_buffer, RX_BUFFER_SIZE);
+  #else
+  HAL_UART_Receive_IT(huart, &inbyte, 1);
+  #endif
+}
 

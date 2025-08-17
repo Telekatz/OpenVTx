@@ -199,7 +199,7 @@ void eeprom_seek_paCal(paCalibration_t* cal, uint8_t idx) {
   do {
     if ((calEE[x].flag & 0x0f) == idx) {
       memcpy(cal ,&calEE[x], sizeof(paCalibration_t));
-      TRACE_DEBUG("EE cal read %i\r", idx);
+      TRACE_INFO("EE cal read %i\r", idx);
       return;
     }
   } while (x--);
@@ -214,7 +214,7 @@ uint8_t push_paCal(paCalibration_t* cal, uint8_t idx) {
 
   eeprom_seek_paCal((paCalibration_t*)data, idx);
   if (memcmp(&data, cal, sizeof(paCalibration_t)) == 0) {
-    TRACE_DEBUG("EE cal match:\r");
+    TRACE_INFO("EE cal match:\r");
     return 1;
   }
 
@@ -225,7 +225,7 @@ uint8_t push_paCal(paCalibration_t* cal, uint8_t idx) {
   }
   
   if( x == CAL_PER_PAGE * CAL_PAGES) {
-    TRACE_DEBUG("EE cal full:\r");
+    TRACE_INFO("EE cal full:\r");
     return 0;
   }
 
@@ -237,23 +237,23 @@ uint8_t push_paCal(paCalibration_t* cal, uint8_t idx) {
   HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, (uint32_t)&calEE[x] + 8, data[1]);
   HAL_FLASH_Lock();
 
-  TRACE_DEBUG_WP("EE cal write %i: %x: \r",x ,&calEE[x]);
+  TRACE_INFO_WP("EE cal write %i: %x: ",x ,&calEE[x]);
   for (uint8_t i=0; i<sizeof(paCalibration_t); i++) {
-    TRACE_DEBUG_WP("%x ", ((uint8_t*)&calEE[x])[i]);
+    TRACE_INFO_WP("%x ", ((uint8_t*)&calEE[x])[i]);
   }
-  TRACE_DEBUG_WP("\r");
+  TRACE_INFO_WP("\r");
 
   return 1;
 }
 
 void reorg_paCal(uint8_t excludeIdx) {
   erase_pages(CAL_START, CAL_PAGES);
-  TRACE_DEBUG("EE cal erase flash:\r");
+  TRACE_INFO("EE cal erase flash:\r");
 
   for (uint8_t x = 1; x < ARRAY_SIZE(paCal); x++) {
     if ((x != excludeIdx) && (paCal[x].flag != 0)) {
       push_paCal(&paCal[x], x);
-      TRACE_DEBUG("EE cal store %i:\r", x);
+      TRACE_INFO("EE cal store %i:\r", x);
     }
   }
 }

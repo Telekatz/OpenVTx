@@ -5,25 +5,16 @@
 #include "helpers.h"
 #include <math.h>
 #include "mspVtx.h"
+#include "mspMenu.h"
 #include "rtc6705.h"
 #include "rf_pa.h"
 #if HAS_OSD == 1
 #include "OSD.h"
 #endif
+#include <string.h>
 
 #define OUTPUT_POWER_INTERVAL   5 // ms
 #define MSP_VTXSTATUS           0x4802
-
-typedef enum {
-    MSP_DP_HEARTBEAT = 0,         // Release the display after clearing and updating
-    MSP_DP_RELEASE = 1,         // Release the display after clearing and updating
-    MSP_DP_CLEAR_SCREEN = 2,    // Clear the display
-    MSP_DP_WRITE_STRING = 3,    // Write a string at given coordinates
-    MSP_DP_DRAW_SCREEN = 4,     // Trigger a screen draw
-    MSP_DP_OPTIONS = 5,         // Not used by Betaflight. Reserved by Ardupilot and INAV
-    MSP_DP_SYS = 6,             // Display system element displayportSystemElement_e at given coordinates
-    MSP_DP_COUNT,
-} displayportMspCommand_e;
 
 /* SA2.1 powerlevels in dBm.
  *
@@ -42,7 +33,6 @@ uint8_t saPowerLevelsLabel[SA_NUM_POWER_LEVELS * POWER_LEVEL_LABEL_LENGTH] = {'1
 gpio_out_t rtcen_pin;
 gpio_out_t bias2_pin;
 gpio_pwm_t outputPower_pin;
-uint8_t armed;
 
 paCalibration_t paCal[PA_CAL_TABLE_SIZE] = {{5,  0, { 5650, 5700, 5750, 5800, 5850, 5900, 5950 }},    //frequency
                                             {1,  0, { 1799, 1820, 1841, 1863, 1885, 1909, 1935 }},    // 1mW
@@ -116,27 +106,9 @@ void target_mspProcessPacket(mspPacket_t __attribute__((unused)) *packet)
   uint16_t debug0;
   uint16_t debug1;
 
-
   switch (packet->v1.version) {
 
     case MSP_V1:
-      switch (packet->v1.cmd) {
-        case MSP_DISPLAYPORT:
-#if HAS_OSD == 1
-          switch (packet->v1.payload[0]) {
-            case MSP_DP_HEARTBEAT:    OSD_heartbeat(); break;
-            case MSP_DP_CLEAR_SCREEN: OSD_clearScreen(); break;
-            case MSP_DP_WRITE_STRING: OSD_writeString(packet->v1.payload, packet->v1.size); break;
-            case MSP_DP_DRAW_SCREEN:  OSD_drawScreen(); break;
-            default: TRACE_INFO("MSP_DP unkw %02x\r", packet->v1.payload[0]); break;
-          } //switch (packet->v1.payload[0])
-#endif
-          break;
-
-        default:
-          TRACE_INFO("CMDV1 unkw %i\r", packet->v1.cmd);
-          break;
-      } // switch (packet->v1.cmd)
       break;
 
     case MSP_V2:
@@ -163,15 +135,6 @@ void target_mspProcessPacket(mspPacket_t __attribute__((unused)) *packet)
               break;
             default:
               break;
-          }
-          break;
-        case MSP_STATUS:
-          if ( !armed && (packet->v2.payload[6] & 0x01)) {
-            TRACE_INFO("FC ARMED\r");
-            armed = 1;
-          } else if ( armed && !(packet->v2.payload[6] & 0x01)) {
-            TRACE_INFO("FC DISARMED\r");
-            armed = 0;
           }
           break;
         case MSP_PACALTABLE:
@@ -202,24 +165,25 @@ void target_setup(void)
 #endif
 }
 
-extern volatile uint32_t ccrDebug;
 
 void target_loop(void)
 {
 	static uint32_t lastTick=0;
   static uint32_t loops = 0;
-
-  if((HAL_GetTick() - lastTick) > 1000) {
+  
+  if ((HAL_GetTick() - lastTick) >= 1000) {
     lastTick = HAL_GetTick();
-    HAL_ADC_Start_IT(&hadc1);
-    //mspSendSimpleRequest(MSP_STATUS);
-    //TRACE_INFO("Rounds %i; Temp: %i\r", loops, temperature );
+    measureTemperature();
+    //TRACE_INFO("Loops %i; Temp: %i\r", loops, temperature );
+    //TRACE_INFO("osdState %i\r", osdState);
     loops = 0;
   }
+
 #if HAS_OSD == 1
   OSD_update();
 #endif
-  //TRACE_INFO("target_loop\r");
+  msp_menu();
+
   loops +=1;
 }
 

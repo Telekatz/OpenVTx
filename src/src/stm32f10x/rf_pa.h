@@ -16,6 +16,7 @@ extern volatile uint16_t temperature;
 extern ADC_HandleTypeDef hadc1;
 extern paCalibration_t paCal[PA_CAL_TABLE_SIZE];
 
+void measureTemperature(void);
 uint16_t bilinearInterpolation(float dB);
 void sendPaCalibration(uint8_t idx);
 void setPaCalibration(mspPacket_t *packet);

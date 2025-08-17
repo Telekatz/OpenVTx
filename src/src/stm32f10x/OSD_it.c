@@ -90,7 +90,7 @@ typedef struct _uint32u16u8_t {
 
 } uint32u16u8_t;
 
-
+#if HAS_OSD == 1
 void vsync_callback(void) {
   static uint32_t oldTick = 0;
   uint32_t actTick = HAL_GetTick();
@@ -436,5 +436,5 @@ void EXTI15_10_IRQHandler(void)
     vsync_callback();
 }
 
-
+#endif
 
